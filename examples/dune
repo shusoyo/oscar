@@ -1,0 +1,17 @@
+(library
+ (name json)
+ (wrapped false)
+ (modules json)
+ (libraries oscar)
+ (preprocess
+  (pps ppx_deriving.show ppx_deriving.eq)))
+
+(library
+ (name ini)
+ (wrapped false)
+ (modules ini)
+ (libraries oscar))
+
+(alias
+ (name examples)
+ (deps json.cma ini.cma))
