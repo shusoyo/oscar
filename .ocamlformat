@@ -1,2 +1,4 @@
 # if-then-else=k-r
 # profile=janestreet
+function-indent-nested=always
+# margin=100

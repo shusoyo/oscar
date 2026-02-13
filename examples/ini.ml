@@ -4,7 +4,25 @@ type pair = { key : string; value : string }
 type section = { name : string; pairs : pair list }
 type sections = section list
 
-let ini : sections parser = fail { desc = "todo"; pos = 0 }
+(* example :
+[section 1]
+hello = value *)
+
+module P = struct
+  let is_token = function '[' | ']' | '=' -> false | _ -> true
+  let is_spaces = function ' ' | '\t' -> true | _ -> false
+end
+
+let single_line_comment =
+  string ";;" *> skip_while (( <> ) '\n') <* optional (char '\n')
+
+let ws = take_while P.is_spaces
+let lex (ps : 'a parser) : 'a parser = ps <* ws
+
+let a =
+  gen_parser (fun input ->
+    (* hello *)
+    failwith "hello")
 
 let read_file (path : string) : string =
   let ic = open_in path in

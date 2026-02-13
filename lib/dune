@@ -2,5 +2,6 @@
  (name oscar)
  (public_name oscar)
  (modules oscar parser combinators)
+ (private_modules parser combinators)
  (preprocess
   (pps ppx_deriving.show ppx_deriving.eq)))

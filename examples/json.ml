@@ -1,71 +1,57 @@
 open Oscar
 
 (** Json value *)
-type json_value =
+type json =
   | Null
   | Bool of bool
   | Number of int  (** Note: not support for float unmber *)
   | String of string
-  | Array of json_value list
-  | Object of (string * json_value) list
+  | Array of json list
+  | Object of (string * json) list
 [@@deriving show, eq]
 
 module P = struct
   let is_digit = Char.Ascii.is_digit
   let is_letter = Char.Ascii.is_letter
   let not_quot = ( <> ) '"'
-  let is_space = function ' ' | '\t' -> true | _ -> false
+
+  let is_space = function
+    | '\x20' | '\x0a' | '\x0d' | '\x09' -> true
+    | _ -> false
 end
 
 let spaces = skip_while P.is_space
 
 (* Lexer *)
-let lex p = p <* spaces
+let lex p = spaces *> p
 let digits = lex (take_while1 P.is_digit)
-let lbrace = lex (char '{')
-let rbrace = lex (char '}')
-let comma = lex (char ',')
-let colon = lex (char ':')
-let lbrack = lex (char '[')
-let rbrack = lex (char ']')
-
-let string_literal : string parser =
-  lex (char '"' *> take_while P.not_quot <* char '"')
+let lbrace, rbrace = (lex (char '{'), lex (char '}'))
+let lbrack, rbrack = (lex (char '['), lex (char ']'))
+let comma, colon = (lex (char ','), lex (char ':'))
+let true_ = lex (string "true")
+let false_ = lex (string "false")
+let null_ = lex (string "null")
+let string_literal = lex (char '"' *> take_while P.not_quot <* char '"')
 
 (* Parser *)
-let json_parser : json_value parser =
-  (fun json_value ->
-    let json_null : json_value parser =
-      (fun _ -> Null) <$> lex (string "null")
+let json_parser : json parser =
+  fix (fun json ->
+    let json_null = (fun _ -> Null) <$> null_ in
+    let json_bool = (fun x -> Bool (bool_of_string x)) <$> (true_ <|> false_) in
+    let json_string = (fun x -> String x) <$> string_literal in
+    let json_number = (fun x -> Number (int_of_string x)) <$> digits in
+
+    let json_pair =
+      (fun x _ y -> (x, y)) <$> string_literal <*> colon <*> json
     in
 
-    let json_bool : json_value parser =
-      (fun x -> Bool (bool_of_string x))
-      <$> (lex (string "true") <|> lex (string "false"))
-    in
-
-    let json_number : json_value parser =
-      (fun x -> Number (int_of_string x)) <$> digits
-    in
-
-    let json_string : json_value parser =
-      (fun x -> String x) <$> string_literal
-    in
-
-    let json_array : json_value parser =
-      let elements = sep_by comma json_value in
-      (fun x -> Array x) <$> (lbrack *> elements <* rbrack)
-    in
-
-    let json_pair : (string * json_value) parser =
-      (fun key _ value -> (key, value))
-      <$> string_literal <*> colon <*> json_value
-    in
-
-    let json_object : json_value parser =
+    let json_object =
       (fun x -> Object x) <$> lbrace *> sep_by comma json_pair <* rbrace
     in
 
-    json_null <|> json_bool <|> json_number <|> json_string <|> json_array
-    <|> json_object)
-  |> fix
+    let json_array =
+      (fun x -> Array x) <$> lbrack *> sep_by comma json <* rbrack
+    in
+
+    spaces *> json_null <|> json_bool <|> json_number <|> json_string
+    <|> json_array <|> json_object <?> "json")
